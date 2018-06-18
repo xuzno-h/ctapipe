@@ -2,7 +2,7 @@
 """
 
 TODO:
-- Speed tests, need to be certain the looping on all telescopes is not killing 
+- Speed tests, need to be certain the looping on all telescopes is not killing
 performance
 - Introduce new weighting schemes
 - Make intersect_lines code more readable
@@ -13,9 +13,10 @@ import itertools
 import astropy.units as u
 from ctapipe.reco.reco_algorithms import Reconstructor
 from ctapipe.io.containers import ReconstructedShowerContainer
-from ctapipe.coordinates import NominalFrame, HorizonFrame
+from ctapipe.coordinates import NominalFrame, HorizonFrame, CameraFrame
 from ctapipe.coordinates import TiltedGroundFrame, project_to_ground
 from ctapipe.instrument import get_atmosphere_profile_functions
+from astropy.coordinates import SkyCoord
 
 __all__ = [
     'HillasIntersection'
@@ -49,7 +50,7 @@ class HillasIntersection(Reconstructor):
         _ = get_atmosphere_profile_functions(atmosphere_profile_name)
         self.thickness_profile, self.altitude_profile = _
 
-    def predict(self, hillas_parameters, tel_x, tel_y, array_direction):
+    def predict(self, hillas_parameters, tel_x, tel_y, focal_length, array_direction):
         """
 
         Parameters
@@ -63,6 +64,9 @@ class HillasIntersection(Reconstructor):
         tel_y: dict
             Dictionary containing telescope position on ground for all
             telescopes in reconstruction
+        focal_length: dict
+            Dictionary containing telescope focal lengths ground for all
+            telescopes in reconstruction
         array_direction: HorizonFrame
             Pointing direction of the array
 
@@ -72,16 +76,15 @@ class HillasIntersection(Reconstructor):
 
         """
         src_x, src_y, err_x, err_y = self.reconstruct_nominal(hillas_parameters)
-        core_x, core_y, core_err_x, core_err_y = self.reconstruct_tilted(
-            hillas_parameters, tel_x, tel_y)
+        core_x, core_y, core_err_x, core_err_y = self.reconstruct_tilted(hillas_parameters, tel_x, tel_y)
         err_x *= u.rad
         err_y *= u.rad
 
-        nom = NominalFrame(x=src_x * u.rad, y=src_y * u.rad,
-                           array_direction=array_direction)
-        horiz = nom.transform_to(HorizonFrame())
+        nom = NominalFrame(x=src_x * u.rad, y=src_y * u.rad, array_direction=array_direction, pointing_direction=array_direction)
+        hf = HorizonFrame(array_direction=array_direction, pointing_direction=array_direction)
+        horiz = nom.transform_to(hf)
         result = ReconstructedShowerContainer()
-        result.alt, result.az = horiz.alt, horiz.az
+        result.alt, result.az = horiz.alt[0], horiz.az[0]
 
         tilt = TiltedGroundFrame(x=core_x * u.m, y=core_y * u.m,
                                  pointing_direction=array_direction)
@@ -89,10 +92,10 @@ class HillasIntersection(Reconstructor):
         result.core_x = grd.x
         result.core_y = grd.y
 
-        x_max = self.reconstruct_xmax(nom.x, nom.y,
+        h_max = self.reconstruct_hmax(nom.x, nom.y,
                                       tilt.x, tilt.y,
                                       hillas_parameters,
-                                      tel_x, tel_y,
+                                      tel_x, tel_y, focal_length, nom,
                                       90 * u.deg - array_direction.alt)
 
         result.core_uncert = np.sqrt(core_err_x * core_err_x
@@ -105,7 +108,7 @@ class HillasIntersection(Reconstructor):
         src_error = np.sqrt(err_x * err_x + err_y * err_y)
         result.alt_uncert = src_error.to(u.deg)
         result.az_uncert = src_error.to(u.deg)
-        result.h_max = x_max
+        result.h_max = h_max
         result.h_max_uncert = np.nan
         result.goodness_of_fit = np.nan
 
@@ -259,10 +262,10 @@ class HillasIntersection(Reconstructor):
 
         return x_pos, y_pos, np.sqrt(var_x), np.sqrt(var_y)
 
-    def reconstruct_xmax(self, source_x, source_y, core_x, core_y,
-                         hillas_parameters, tel_x, tel_y, zen):
+    def reconstruct_hmax(self, source_x, source_y, core_x, core_y,
+                         hillas_parameters, tel_x, tel_y, focal_lengths, nominal_frame, zen):
         """
-        Geometrical depth of shower maximum reconstruction, assuming the shower 
+        Geometrical depth of shower maximum reconstruction, assuming the shower
         maximum lies at the image centroid
 
         Parameters
@@ -280,7 +283,9 @@ class HillasIntersection(Reconstructor):
         tel_x: dict
             Dictionary of telescope X positions
         tel_y: dict
-            Dictionary of telescope X positions
+            Dictionary of telescope Y positions
+        focal_lengths: dict
+            Dictionary of telescope focal_lengths
         zen: float
             Zenith angle of shower
 
@@ -298,8 +303,14 @@ class HillasIntersection(Reconstructor):
 
         # Loops over telescopes in event
         for tel in hillas_parameters.keys():
-            cog_x.append(hillas_parameters[tel].cen_x.to(u.rad).value)
-            cog_y.append(hillas_parameters[tel].cen_y.to(u.rad).value)
+            cen_x = hillas_parameters[tel].cen_x
+            cen_y = hillas_parameters[tel].cen_y
+
+            cf = CameraFrame(focal_length=focal_lengths[tel])
+            cog = SkyCoord(x=cen_x, y=cen_y, frame=cf).transform_to(nominal_frame)
+
+            cog_x.append(cog.x.to(u.rad).value)
+            cog_y.append(cog.y.to(u.rad).value)
             amp.append(hillas_parameters[tel].size)
 
             tx.append(tel_x[tel].to(u.m).value)
@@ -324,15 +335,10 @@ class HillasIntersection(Reconstructor):
         mean_height += 2100  # TODO: replace with instrument info
 
         if mean_height > 100000 or np.isnan(mean_height):
-            mean_height = 100000
+            mean_height = np.nan
 
         mean_height *= u.m
-        # Lookup this height in the depth tables, the convert Hmax to Xmax
-        x_max = self.thickness_profile(mean_height.to(u.km))
-        # Convert to slant depth
-        x_max /= np.cos(zen)
-
-        return x_max
+        return mean_height
 
     @staticmethod
     def intersect_lines(xp1, yp1, phi1, xp2, yp2, phi2):
