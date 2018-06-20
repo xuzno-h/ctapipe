@@ -128,6 +128,8 @@ class R0CameraContainer(Container):
     trigger_time = Field(None, "Telescope trigger time, start of waveform "
                                "readout, None for MCs")
     trigger_type = Field(0o0, "camera's event trigger type if applicable")
+    num_trig_pix = Field(0, "Number of trigger groups (sectors) listed")
+    trig_pix_id = Field(None, "pixels involved in the camera trigger")
     image = Field(None, (
         "numpy array containing integrated ADC data "
         "(n_channels x n_pixels) DEPRECATED"
@@ -230,7 +232,6 @@ class MCCameraEventContainer(Container):
         0,
         "the tracking Altitude corrected for pointing errors for the telescope"
     )
-
 
 class MCEventContainer(Container):
     """
@@ -655,16 +656,16 @@ class MuonIntensityParameter(Container):
 
 
 class HillasParametersContainer(Container):
-    intensity = Field(0.0, 'total intensity (size)')
+    intensity = Field(nan, 'total intensity (size)')
 
-    x = Field(0.0, 'centroid x coordinate')
-    y = Field(0.0, 'centroid x coordinate')
-    r = Field(0.0, 'radial coordinate of centroid')
-    phi = Field(0.0, 'polar coordinate of centroid', unit=u.deg)
+    x = Field(nan, 'centroid x coordinate')
+    y = Field(nan, 'centroid x coordinate')
+    r = Field(nan, 'radial coordinate of centroid')
+    phi = Field(nan, 'polar coordinate of centroid', unit=u.deg)
 
-    length = Field(0.0, 'RMS spread along the major-axis')
-    width = Field(0.0, 'RMS spread along the minor-axis')
-    psi = Field(0.0, 'rotation angle of ellipse', unit=u.deg)
+    length = Field(nan, 'RMS spread along the major-axis')
+    width = Field(nan, 'RMS spread along the minor-axis')
+    psi = Field(nan, 'rotation angle of ellipse', unit=u.deg)
 
-    skewness = Field(0.0, 'measure of the asymmetry')
-    kurtosis = Field(0.0, 'measure of the tailedness')
+    skewness = Field(nan, 'measure of the asymmetry')
+    kurtosis = Field(nan, 'measure of the tailedness')
