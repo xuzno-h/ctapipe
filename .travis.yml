@@ -44,10 +44,10 @@ before_install:
     # Useful for debugging any issues with conda
     - conda info -a
     - git fetch --tags
+    - sed s/PYTHON_VERSION/$PYTHON_VERSION/g travis_test_template.yaml > travis_test.yaml
 
 install:
-    - conda create --name cta-dev python=$PYTHON_VERSION
-    - travis_wait 20 conda env update -n cta-dev --file py${PYTHON_VERSION}_env.yaml
+    - travis_wait 20 conda env create -n cta-dev -f=travis_test.yaml
     - source activate cta-dev
     - ulimit -s 16000  # increase stack size limit, for libhessio
     - pip install travis-sphinx
