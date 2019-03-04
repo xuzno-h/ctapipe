@@ -46,23 +46,17 @@ class CameraCalibrator(Component):
         ))
 
     """
-    def __init__(self, config=None, tool=None,
-                 r1_product=None,
-                 extractor_product='NeighbourPeakIntegrator',
-                 cleaner_product='NullWaveformCleaner',
-                 eventsource=None,
-                 **kwargs):
+    def __init__(
+        self,
+        r1_product=None,
+        extractor_product='NeighbourPeakIntegrator',
+        cleaner_product='NullWaveformCleaner',
+        eventsource=None,
+        **kwargs
+    ):
         """
         Parameters
         ----------
-        config : traitlets.loader.Config
-            Configuration specified by config file or cmdline arguments.
-            Used to set traitlet values.
-            Set to None if no configuration to pass.
-        tool : ctapipe.core.Tool or None
-            Tool executable that is calling this component.
-            Passes the correct logger to the component.
-            Set to None if no Tool to pass.
         r1_product : str
             The R1 calibrator to use. Manually overrides the Factory.
         extractor_product : str
@@ -75,37 +69,35 @@ class CameraCalibrator(Component):
             the appropriate R1Calibrator to use.
         kwargs
         """
-        super().__init__(config=config, tool=tool, **kwargs)
+        super().__init__(**kwargs)
 
         extractor = ChargeExtractor.from_name(
             extractor_product,
-            config=config,
-            tool=tool
+            parent=self
         )
 
         cleaner = WaveformCleaner.from_name(
             cleaner_product,
-            config=config,
-            tool=tool,
+            parent=self,
         )
 
         if r1_product:
             self.r1 = CameraR1Calibrator.from_name(
                 r1_product,
-                config=config,
-                tool=tool,
+                parent=self,
             )
         else:
             self.r1 = CameraR1Calibrator.from_eventsource(
                 eventsource,
-                config=config,
-                tool=tool,
+                parent=self,
             )
 
-        self.dl0 = CameraDL0Reducer(config=config, tool=tool)
-        self.dl1 = CameraDL1Calibrator(config=config, tool=tool,
-                                       extractor=extractor,
-                                       cleaner=cleaner)
+        self.dl0 = CameraDL0Reducer(parent=self)
+        self.dl1 = CameraDL1Calibrator(
+            extractor=extractor,
+            cleaner=cleaner,
+            parent=self,
+        )
 
     def calibrate(self, event):
         """
