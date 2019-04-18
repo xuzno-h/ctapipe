@@ -1,0 +1,25 @@
+DL1CameraContainer
+==================
+
+.. currentmodule:: ctapipe.io.containers
+
+.. autoclass:: DL1CameraContainer
+   :show-inheritance:
+
+   .. rubric:: Attributes Summary
+
+   .. autosummary::
+
+      ~DL1CameraContainer.gain_channel
+      ~DL1CameraContainer.image
+      ~DL1CameraContainer.meta
+      ~DL1CameraContainer.prefix
+      ~DL1CameraContainer.pulse_time
+
+   .. rubric:: Attributes Documentation
+
+   .. autoattribute:: gain_channel
+   .. autoattribute:: image
+   .. autoattribute:: meta
+   .. autoattribute:: prefix
+   .. autoattribute:: pulse_time

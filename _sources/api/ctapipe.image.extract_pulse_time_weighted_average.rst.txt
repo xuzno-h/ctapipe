@@ -1,0 +1,6 @@
+extract_pulse_time_weighted_average
+===================================
+
+.. currentmodule:: ctapipe.image
+
+.. autofunction:: extract_pulse_time_weighted_average

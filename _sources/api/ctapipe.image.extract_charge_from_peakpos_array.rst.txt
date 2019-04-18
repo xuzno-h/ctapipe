@@ -1,0 +1,6 @@
+extract_charge_from_peakpos_array
+=================================
+
+.. currentmodule:: ctapipe.image
+
+.. autofunction:: extract_charge_from_peakpos_array
